@@ -8,11 +8,12 @@
  *          SWEN 563 / CMPE 663 — P4 "PS-16 PhonoScope".
  ******************************************************************************
  */
-#include "dsp.h"
-#include "audio.h"
+
 #include "arm_math.h"          /* CMSIS-DSP — wired in CMakeLists (R16)         */
 #include <math.h>
-
+#include "tasks.h"
+#include "dsp.h"
+#include "audio.h"
 /* N is the number of samples in a frame. The starter uses 256, and you can
  * raise it. */
 #define N  AUDIO_PCM_N

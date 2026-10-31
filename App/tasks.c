@@ -21,7 +21,7 @@
  ******************************************************************************
  */
 #include <stdio.h>
-#include <string.h>
+#include <string.h> 
 #include "main.h"
 #include "tasks.h"
 #include "audio.h"
@@ -86,6 +86,8 @@ static void DSPTask(void *arg)
          *   static int16_t pcm[AUDIO_PCM_N];
          *   if (audio_decimate(pdm, pcm) == 0) dsp_process(pcm);
          * dsp_process obeys WCET < T_MS in all frames (spec R14). */
+        static int16_t pcm[AUDIO_PCM_N];
+        if (audio_decimate(pdm, pcm) == 0) dsp_process(pcm);
 
         audio_half_done(which);
     }

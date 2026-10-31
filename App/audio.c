@@ -177,7 +177,8 @@ uint32_t audio_overruns(void) { return s_overruns; }
 /* ---- STUDENT TODO: PDM -> PCM decimation (PDM2PCM is pre-vendored) --------*/
 int32_t audio_decimate(const uint8_t *pdm_half, int16_t *pcm_out)
 {
-    (void)pdm_half; (void)pcm_out;
+    uint32_t check = PDM_Filter(pdm_half, pcm_out, &filter);
+    //return (int32_t) check;
     //int16_t pdm_decimate = (int16_t)(*pdm_half / AUDIO_DECIM);
     /* STUDENT TODO (spec R1): call the ST PDM2PCM library to decimate this PDM
      * half (÷80) into AUDIO_PCM_N int16 samples at 16 kHz. Init the filter one
