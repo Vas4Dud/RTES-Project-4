@@ -3,6 +3,8 @@
 SWEN 563 / CMPE 663 / EEEE 663 — FreeRTOS + **CMSIS-DSP** project (STM32CubeMX HAL,
 CMake + Ninja + VS Code). Spec: [`../RTES_Project4_Spec.md`](../RTES_Project4_Spec.md).
 
+
+hello
 > **P4 starts from P3.**
 > The FreeRTOS + CMSIS-RTOS2 + CMake scaffold, the OLED / console / RGB / idle-hook modules, and the **CMSIS-DSP library (vendored in P3)** come from the P3 solution without change.
 > The new material in P4 is the **audio front end**.
