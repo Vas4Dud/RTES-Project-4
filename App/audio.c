@@ -9,8 +9,10 @@
  */
 #include "audio.h"
 #include "main.h"
+#include <stdint.h>
 #include <string.h>
-
+#include "pdm2pcm.h"
+#include "pdm2pcm_glo.h"
 /* CubeMX names the SAI1 sub-block-A handle 'hsai_BlockA1' and its DMA handle
  * 'hdma_sai1_a' by default. If your generated Core/Src/main.c uses different
  * names, change them here. */
@@ -25,8 +27,10 @@ static osThreadId_t s_consumer;
 static volatile uint32_t s_frames;
 static volatile uint32_t s_overruns;
 static volatile uint8_t  s_busy[2];        /* half filled, consumer not done    */
+PDM2PCM_Handler_t filter;
 
 void audio_set_consumer(osThreadId_t consumer) { s_consumer = consumer; }
+void filter_init(void);
 
 const uint8_t *audio_half(uint8_t which)
 {
@@ -174,6 +178,7 @@ uint32_t audio_overruns(void) { return s_overruns; }
 int32_t audio_decimate(const uint8_t *pdm_half, int16_t *pcm_out)
 {
     (void)pdm_half; (void)pcm_out;
+    //int16_t pdm_decimate = (int16_t)(*pdm_half / AUDIO_DECIM);
     /* STUDENT TODO (spec R1): call the ST PDM2PCM library to decimate this PDM
      * half (÷80) into AUDIO_PCM_N int16 samples at 16 kHz. Init the filter one
      * time, then call PDM_Filter() one time for each 1 ms of audio.
@@ -192,3 +197,21 @@ int32_t audio_decimate(const uint8_t *pdm_half, int16_t *pcm_out)
      * DSP task runs on the spike level. */
     return -1;
 }
+
+void filter_init(void)
+{
+    __HAL_RCC_CRC_CLK_ENABLE();
+    filter.bit_order = PDM_FILTER_BIT_ORDER_LSB;
+    filter.endianness = PDM_FILTER_ENDIANNESS_LE;
+    filter.high_pass_tap = 2122358088;
+    filter.in_ptr_channels = 1;
+    filter.out_ptr_channels = 1;
+    PDM_Filter_Init(&filter);
+    
+    PDM2PCM_Config_t config;
+    config.decimation_factor = PDM_FILTER_DEC_FACTOR_80;
+    config.output_samples_number = 16;
+    config.mic_gain = 24;
+    PDM_Filter_setConfig(&filter, &config);
+}
+

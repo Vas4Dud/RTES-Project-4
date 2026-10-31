@@ -80,5 +80,6 @@ uint32_t audio_overruns(void);
  *  (Middlewares/ST/STM32_Audio/PDM2PCM, which CMakeLists connects for you).
  *  @retval 0 on success, -1 while the function is a stub. */
 int32_t audio_decimate(const uint8_t *pdm_half, int16_t *pcm_out);
+void filter_init(void);
 
 #endif /* AUDIO_H */

@@ -32,7 +32,8 @@
 #include "rgb_led.h"
 #include "perf_mon.h"
 #include "cmsis_os2.h"
-
+#include "pdm2pcm.h"
+#include "pdm2pcm_glo.h"
 #define FS_HZ   16000u
 #define BIN_HZ  (FS_HZ / AUDIO_PCM_N)               /* 62.5 Hz at N=256          */
 #define T_MS    (AUDIO_PCM_N * 1000u / FS_HZ)       /* frame period = deadline   */
@@ -61,7 +62,7 @@ void app_post(void)
     oled_write_line(2, "capture spike");
     rgb_init();
     rgb_set(0u, 0u, 8u);
-
+    //filter_init();
     dsp_init();                 /* FFT instance + Hann window (for the full path) */
     perf_mon_init();
     printf("POST done. Audio starts after the idle-baseline second.\n\n");
