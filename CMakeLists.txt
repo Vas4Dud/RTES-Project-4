@@ -76,11 +76,10 @@ target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
 # Remove wrong libob.a library dependency when using cpp files
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 
-# Add linked libraries
+
 target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
-    # CMSIS-DSP (libarm_cortexM4lf_math.a) — spec R16
     arm_cortexM4lf_math
-    # PDM2PCM (libPDMFilter_CM4_GCC_wc32.a, hard-float) — spec R16
     PDMFilter_CM4_GCC_wc32
+    m
 )
