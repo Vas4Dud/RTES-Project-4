@@ -193,11 +193,13 @@ static void UITask(void *arg)
         int amp = (lv > 128) ? (lv - 128) : (128 - lv);
 
         if (!g_freeze) {
-            oled_printf(0, "PS-16 PhonoScope");
+            /*oled_printf(0, "PS-16 PhonoScope");
             oled_printf(2, "frames %lu", (unsigned long)audio_frames());
             oled_printf(4, "level %-3d ovr %lu", amp, (unsigned long)audio_overruns());
-            oled_printf(6, "CPU %u%%", perf_cpu_percent());
+            oled_printf(6, "CPU %u%%", perf_cpu_percent());*/
             /* TODO: once dsp_process runs, oled_blit() the spectrum + VU bar. */
+            uint8_t* spectrum = dsp_spectrum();
+            oled_blit(spectrum);
         }
 
         if (++sub >= 25u) {                 /* ~1 s */
