@@ -11,6 +11,7 @@
 
 #include "arm_math.h"          /* CMSIS-DSP — wired in CMakeLists (R16)         */
 #include <math.h>
+#include <stdint.h>
 #include "tasks.h"
 #include "dsp.h"
 #include "audio.h"
@@ -66,8 +67,30 @@ void dsp_process(const int16_t *pcm)
      * which is the maximum of each column group, and it must honor the
      * selected band and zoom. Map −60..0 dBFS -> 0..47 px. The starter keeps
      * the bars at 0. */
+    uint32_t ratio = (N/2) / DSP_SPECTRUM_COLS;
     for (uint32_t c = 0u; c < DSP_SPECTRUM_COLS; c++)
-        s_spectrum[c] = 0u;
+    {
+        uint32_t start = c * ratio;
+        float32_t largest = 0;
+        for (int i = 0; i < ratio; i++)
+        {
+            if (s_mag[start + i] > largest)
+            {
+                largest = s_mag[start + i];
+            }
+        }
+        float32_t db = 20 * log10f(largest);
+        if (db < -60.0)
+        {
+            db = -60.0;
+        }
+        else if (db > 0.0)
+        {
+            db = 0.0;
+        }
+        float32_t pixel = (db + 60.0) * 47.0 / 60.0;
+        s_spectrum[c] = (uint8_t) pixel;
+    }
 }
 
 float          dsp_level_dbfs(void) { return s_level_dbfs; }
