@@ -62,7 +62,7 @@ void app_post(void)
     oled_write_line(2, "capture spike");
     rgb_init();
     rgb_set(0u, 0u, 8u);
-    //filter_init();
+    filter_init();
     dsp_init();                 /* FFT instance + Hann window (for the full path) */
     perf_mon_init();
     printf("POST done. Audio starts after the idle-baseline second.\n\n");
