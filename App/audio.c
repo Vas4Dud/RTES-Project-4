@@ -177,9 +177,13 @@ uint32_t audio_overruns(void) { return s_overruns; }
 /* ---- STUDENT TODO: PDM -> PCM decimation (PDM2PCM is pre-vendored) --------*/
 int32_t audio_decimate(const uint8_t *pdm_half, int16_t *pcm_out)
 {
-    uint32_t check = PDM_Filter(pdm_half, pcm_out, &filter);
+    uint16_t limit = AUDIO_PCM_N / 16;
+    uint32_t check = 0;
+    for (int i = 0; i < limit; i++)
+    {
+        check = PDM_Filter(&pdm_half[i * AUDIO_PDM_HALF_BYTES], &pcm_out[i * 16], &filter);
+    }
     //return (int32_t) check;
-    //int16_t pdm_decimate = (int16_t)(*pdm_half / AUDIO_DECIM);
     /* STUDENT TODO (spec R1): call the ST PDM2PCM library to decimate this PDM
      * half (÷80) into AUDIO_PCM_N int16 samples at 16 kHz. Init the filter one
      * time, then call PDM_Filter() one time for each 1 ms of audio.
@@ -196,7 +200,7 @@ int32_t audio_decimate(const uint8_t *pdm_half, int16_t *pcm_out)
      * build connects it for you (spec R16). Your work is the init and filter
      * integration, not the library ceremony. Until you write this code, the
      * DSP task runs on the spike level. */
-    return -1;
+    return (int32_t) check;
 }
 
 void filter_init(void)
