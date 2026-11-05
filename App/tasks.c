@@ -21,6 +21,8 @@
  ******************************************************************************
  */
 #include <stdint.h>
+#include "arm_math.h"          /* CMSIS-DSP — wired in CMakeLists (R16)         */
+#include <math.h>
 #include <stdio.h>
 #include <string.h> 
 #include "main.h"
@@ -35,6 +37,7 @@
 #include "cmsis_os2.h"
 #include "pdm2pcm.h"
 #include "pdm2pcm_glo.h"
+#include "stm32_hal_legacy.h"
 #define FS_HZ   16000u
 #define BIN_HZ  (FS_HZ / AUDIO_PCM_N)               /* 62.5 Hz at N=256          */
 #define T_MS    (AUDIO_PCM_N * 1000u / FS_HZ)       /* frame period = deadline   */
@@ -257,7 +260,7 @@ void fillup_oled(const uint8_t* spectrum, uint8_t *fb1024)
         uint8_t pixels = 0;
         for (int j = 0; j < 64; j++)
         {
-            int y = 63 - j;
+            int y = 55 - j;
             if(spectrum[i] > j)
             {
                 pixels |= 1 << (y % 8);
@@ -273,5 +276,27 @@ void fillup_oled(const uint8_t* spectrum, uint8_t *fb1024)
             }
             
         }
+    }
+    
+    //draw total audio bar
+    float audio = dsp_peak_dbfs();
+    uint16_t width = (uint16_t) ((audio + 60.0) * (127.0 / 60.0));
+    if (width > 127)
+    {
+        width = 127;
+    }
+    else if (width < 0)
+    {
+        width = 0;
+    }
+
+    for (int j = 0; j < 128; j++)
+    {
+        int y = 63;
+        if(width > j)
+        {
+            uint8_t pixels = 0b10000000;
+            fb1024[(y / 8) * 128 + j] = pixels;
+        }  
     }
 }
