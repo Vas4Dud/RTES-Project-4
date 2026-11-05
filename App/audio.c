@@ -179,9 +179,13 @@ int32_t audio_decimate(const uint8_t *pdm_half, int16_t *pcm_out)
 {
     uint16_t limit = AUDIO_PCM_N / 16;
     uint32_t check = 0;
-    for (int i = 0; i < limit; i++)
+    for (uint16_t i = 0; i < limit; i++)
     {
         check = PDM_Filter(&pdm_half[i * 160], &pcm_out[i * 16], &filter);
+        if (check != 0){
+            check = -1;
+            break;
+        }
     }
     //return (int32_t) check;
     /* STUDENT TODO (spec R1): call the ST PDM2PCM library to decimate this PDM
