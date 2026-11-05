@@ -20,6 +20,7 @@
  *  callbacks notify the DSP task (R3/R13).
  ******************************************************************************
  */
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h> 
 #include "main.h"
@@ -37,6 +38,7 @@
 #define FS_HZ   16000u
 #define BIN_HZ  (FS_HZ / AUDIO_PCM_N)               /* 62.5 Hz at N=256          */
 #define T_MS    (AUDIO_PCM_N * 1000u / FS_HZ)       /* frame period = deadline   */
+void fillup_oled(const uint8_t* spectrum, uint8_t *fb1024);
 
 /* Shared spike level (0..255, about 128 with no sound). Single-writer (DSP),
  * one-reader (UI). A stale read is harmless (spec R11-style unlocked
@@ -199,7 +201,9 @@ static void UITask(void *arg)
             oled_printf(6, "CPU %u%%", perf_cpu_percent());*/
             /* TODO: once dsp_process runs, oled_blit() the spectrum + VU bar. */
             uint8_t* spectrum = dsp_spectrum();
-            oled_blit(spectrum);
+            static uint8_t vu_bar[1024];
+            fillup_oled(spectrum, vu_bar);
+            oled_blit(vu_bar);
         }
 
         if (++sub >= 25u) {                 /* ~1 s */
@@ -240,4 +244,34 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
     if (GPIO_Pin == GPIO_PIN_12)      g_b1_flag = 1u;
     else if (GPIO_Pin == GPIO_PIN_13) g_b2_flag = 1u;
+}
+
+void fillup_oled(const uint8_t* spectrum, uint8_t *fb1024)
+{
+    for (int i = 0; i < 1024; i++)
+    {
+        fb1024[i] = 0;
+    }
+    for (int i = 0; i < 128; i++)
+    {
+        uint8_t pixels = 0;
+        for (int j = 0; j < 64; j++)
+        {
+            int y = 63 - j;
+            if(spectrum[i] > j)
+            {
+                pixels |= 1 << (y % 8);
+            }
+            else if (pixels != 0) {
+                fb1024[(y / 8) * 128 + i] = pixels;
+                pixels = 0;
+            }
+            if (pixels == 0xFF)
+            {
+                fb1024[(y / 8) * 128 + i] = pixels;
+                pixels = 0;
+            }
+            
+        }
+    }
 }

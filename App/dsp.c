@@ -68,6 +68,10 @@ void dsp_process(const int16_t *pcm)
      * selected band and zoom. Map −60..0 dBFS -> 0..47 px. The starter keeps
      * the bars at 0. */
     uint32_t ratio = (N/2) / DSP_SPECTRUM_COLS;
+    /*for (int i = 0; i < DSP_SPECTRUM_COLS; i++)
+    {
+        s_spectrum[i] = 0;
+    }*/
     for (uint32_t c = 0u; c < DSP_SPECTRUM_COLS; c++)
     {
         uint32_t start = c * ratio;
@@ -79,16 +83,16 @@ void dsp_process(const int16_t *pcm)
                 largest = s_mag[start + i];
             }
         }
-        float32_t db = 20 * log10f(largest);
-        if (db < -60.0)
+        float32_t db = (20.0f * log10f(largest));
+        if (db < -60.0f)
         {
-            db = -60.0;
+            db = -60.0f;
         }
         else if (db > 0.0)
         {
             db = 0.0;
         }
-        float32_t pixel = (db + 60.0) * 47.0 / 60.0;
+        float32_t pixel = (db + 60.0f) * 47.0f / 60.0f;
         s_spectrum[c] = (uint8_t) pixel;
     }
 }

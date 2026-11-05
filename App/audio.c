@@ -187,6 +187,7 @@ int32_t audio_decimate(const uint8_t *pdm_half, int16_t *pcm_out)
             break;
         }
     }
+    //check = PDM_Filter(pdm_half, pcm_out, &filter);
     //return (int32_t) check;
     /* STUDENT TODO (spec R1): call the ST PDM2PCM library to decimate this PDM
      * half (÷80) into AUDIO_PCM_N int16 samples at 16 kHz. Init the filter one
