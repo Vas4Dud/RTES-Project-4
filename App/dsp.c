@@ -72,6 +72,7 @@ void dsp_process(const int16_t *pcm)
     {
         s_spectrum[i] = 0;
     }*/
+    float32_t offset = (20.0f * log10f( N/4.0f ));
     for (uint32_t c = 0u; c < DSP_SPECTRUM_COLS; c++)
     {
         uint32_t start = c * ratio;
@@ -83,7 +84,8 @@ void dsp_process(const int16_t *pcm)
                 largest = s_mag[start + i];
             }
         }
-        float32_t db = (20.0f * log10f(largest));
+        float32_t db = (20.0f * log10f(largest + 1e-9f));
+        db -= offset;
         if (db < -60.0f)
         {
             db = -60.0f;

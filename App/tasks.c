@@ -46,7 +46,7 @@ void fillup_oled(const uint8_t* spectrum, uint8_t *fb1024);
 /* Shared spike level (0..255, about 128 with no sound). Single-writer (DSP),
  * one-reader (UI). A stale read is harmless (spec R11-style unlocked
  * snapshot). */
-static volatile uint8_t g_spike_level = 128u;
+// static volatile uint8_t g_spike_level = 128u;
 static volatile uint8_t g_freeze;
 static volatile uint8_t g_b1_flag, g_b2_flag;
 
@@ -84,7 +84,7 @@ static void DSPTask(void *arg)
         const uint8_t *pdm = audio_half(which);
 
         /* MILESTONE 1 — the spike: crude PDM-density level (no decimation). */
-        g_spike_level = audio_spike_level(pdm);
+        // g_spike_level = audio_spike_level(pdm);
 
         /* FULL PATH (student, when audio_decimate() works — PDM2PCM is
          * pre-vendored and connected):
@@ -107,11 +107,11 @@ static void DSPTask(void *arg)
 static void cmd_stat(int argc, char *argv[])
 {
     (void)argc; (void)argv;
-    int amp = (g_spike_level > 128) ? (g_spike_level - 128) : (128 - g_spike_level);
-    printf("Fs=%u N=%u bin=%uHz T=%ums | frames=%lu overruns=%lu level=%d cpu=%u%%\n",
+    // int amp = (g_spike_level > 128) ? (g_spike_level - 128) : (128 - g_spike_level);
+    printf("Fs=%u N=%u bin=%uHz T=%ums | frames=%lu overruns=%lu level=%d peak=%d cpu=%u%%\n",
            FS_HZ, (unsigned)AUDIO_PCM_N, (unsigned)BIN_HZ, (unsigned)T_MS,
            (unsigned long)audio_frames(), (unsigned long)audio_overruns(),
-           amp, perf_cpu_percent());
+           (int)dsp_level_dbfs(), (int)dsp_peak_dbfs(), perf_cpu_percent());
     /* STUDENT: build this into the full stat surface — WCET and jitter,
      * dropped=0, stack high-waters (R17: read at the bench off this
      * surface). */
@@ -194,8 +194,8 @@ static void UITask(void *arg)
         if (g_b1_flag) { g_b1_flag = 0u; /* TODO: cycle mode (VU/SPEC/HEART/LUNG) */ }
         if (g_b2_flag) { g_b2_flag = 0u; g_freeze ^= 1u; }
 
-        uint8_t lv = g_spike_level;
-        int amp = (lv > 128) ? (lv - 128) : (128 - lv);
+        // uint8_t lv = g_spike_level;
+        // int amp = (lv > 128) ? (lv - 128) : (128 - lv);
 
         if (!g_freeze) {
             /*oled_printf(0, "PS-16 PhonoScope");
@@ -212,7 +212,9 @@ static void UITask(void *arg)
         if (++sub >= 25u) {                 /* ~1 s */
             sub = 0u;
             perf_mon_tick_1s();
-            uint8_t zone = (amp < 4) ? 0u : (amp < 24) ? 1u : (amp < 48) ? 2u : 3u;
+            // uint8_t zone = (amp < 4) ? 0u : (amp < 24) ? 1u : (amp < 48) ? 2u : 3u;
+            float32_t currPeak = dsp_peak_dbfs();
+            uint8_t zone = (dsp_clip()) ? 3u : (currPeak > -12.0f) ? 2u : (currPeak > -40.0f) ? 1u : 0u;
             if (zone != led_prev) {         /* RGB on change only (blocks ~11 ms) */
                 if (zone == 0u)      rgb_set(0u, 0u, 8u);   /* quiet  */
                 else if (zone == 1u) rgb_set(0u, 15u, 0u);  /* good   */
