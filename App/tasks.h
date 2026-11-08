@@ -19,6 +19,7 @@
 #ifndef TASKS_H
 #define TASKS_H
 
+#include <stdint.h>
 void app_post(void);
 void app_start(void);
 void fillup_oled(const uint8_t* spectrum, uint8_t *fb1024);

@@ -46,7 +46,7 @@ void fillup_oled(const uint8_t* spectrum, uint8_t *fb1024);
 /* Shared spike level (0..255, about 128 with no sound). Single-writer (DSP),
  * one-reader (UI). A stale read is harmless (spec R11-style unlocked
  * snapshot). */
-// static volatile uint8_t g_spike_level = 128u;
+static volatile uint8_t g_spike_level = 128u;
 static volatile uint8_t g_freeze;
 static volatile uint8_t g_b1_flag, g_b2_flag;
 
@@ -84,7 +84,7 @@ static void DSPTask(void *arg)
         const uint8_t *pdm = audio_half(which);
 
         /* MILESTONE 1 — the spike: crude PDM-density level (no decimation). */
-        // g_spike_level = audio_spike_level(pdm);
+        g_spike_level = audio_spike_level(pdm);
 
         /* FULL PATH (student, when audio_decimate() works — PDM2PCM is
          * pre-vendored and connected):
@@ -107,7 +107,7 @@ static void DSPTask(void *arg)
 static void cmd_stat(int argc, char *argv[])
 {
     (void)argc; (void)argv;
-    // int amp = (g_spike_level > 128) ? (g_spike_level - 128) : (128 - g_spike_level);
+    int amp = (g_spike_level > 128) ? (g_spike_level - 128) : (128 - g_spike_level);
     printf("Fs=%u N=%u bin=%uHz T=%ums | frames=%lu overruns=%lu level=%d peak=%d cpu=%u%%\n",
            FS_HZ, (unsigned)AUDIO_PCM_N, (unsigned)BIN_HZ, (unsigned)T_MS,
            (unsigned long)audio_frames(), (unsigned long)audio_overruns(),
@@ -190,23 +190,52 @@ static void UITask(void *arg)
     for (;;) {
         tick += 40u;
         osDelayUntil(tick);                 /* ~25 fps, decoupled from frames    */
-
-        if (g_b1_flag) { g_b1_flag = 0u; /* TODO: cycle mode (VU/SPEC/HEART/LUNG) */ }
+        static uint8_t ui_state = 0; 
+        if (g_b1_flag) 
+        { 
+            g_b1_flag = 0;
+            oled_clear();
+            ui_state++;
+            if (ui_state == 4)
+            {
+                ui_state = 0;
+            } /* TODO: cycle mode (VU/SPEC/HEART/LUNG) */ 
+        }
         if (g_b2_flag) { g_b2_flag = 0u; g_freeze ^= 1u; }
 
-        // uint8_t lv = g_spike_level;
-        // int amp = (lv > 128) ? (lv - 128) : (128 - lv);
+        uint8_t lv = g_spike_level;
+        int amp = (lv > 128) ? (lv - 128) : (128 - lv);
 
         if (!g_freeze) {
-            /*oled_printf(0, "PS-16 PhonoScope");
-            oled_printf(2, "frames %lu", (unsigned long)audio_frames());
-            oled_printf(4, "level %-3d ovr %lu", amp, (unsigned long)audio_overruns());
-            oled_printf(6, "CPU %u%%", perf_cpu_percent());*/
+            if (ui_state == 0)
+            {
+                oled_printf(0, "PS-16 PhonoScope");
+                oled_printf(2, "frames %lu", (unsigned long)audio_frames());
+                oled_printf(4, "level %-3d ovr %lu", amp, (unsigned long)audio_overruns());
+                oled_printf(6, "CPU %u%%", perf_cpu_percent());
+            }
+            else
+            {
+                switch (ui_state) 
+                {
+                    case(1):
+                        set_frequency(0.0f, 8000.0f);
+                        break;
+                    case(2):
+                        set_frequency(0.0f, 300.0f);
+                        break;
+                    case(3):
+                        set_frequency(100.0f, 1000.0f);
+                        break;
+                }
+
+                uint8_t* spectrum = dsp_spectrum();
+                static uint8_t vu_bar[1024];
+                fillup_oled(spectrum, vu_bar);
+                oled_blit(vu_bar);
+            }
             /* TODO: once dsp_process runs, oled_blit() the spectrum + VU bar. */
-            uint8_t* spectrum = dsp_spectrum();
-            static uint8_t vu_bar[1024];
-            fillup_oled(spectrum, vu_bar);
-            oled_blit(vu_bar);
+
         }
 
         if (++sub >= 25u) {                 /* ~1 s */

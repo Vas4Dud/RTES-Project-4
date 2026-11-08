@@ -19,6 +19,7 @@
  * raise it. */
 #define N  AUDIO_PCM_N
 
+void set_frequency(float32_t low, float32_t high);
 /* All DSP buffers are static. None is on the RTOS heap or a task stack
  * (spec R17). */
 static arm_rfft_fast_instance_f32 s_rfft;
@@ -31,6 +32,9 @@ static float32_t s_mag[N / 2u];        /* magnitude bins                        
 static uint8_t   s_spectrum[DSP_SPECTRUM_COLS];
 static volatile float   s_level_dbfs = -120.0f, s_peak_dbfs = -120.0f;
 static volatile uint8_t s_clip;
+
+static volatile float32_t high_freq = 8000;
+static volatile float32_t low_freq = 0;
 
 void dsp_init(void)
 {
@@ -67,23 +71,35 @@ void dsp_process(const int16_t *pcm)
      * which is the maximum of each column group, and it must honor the
      * selected band and zoom. Map −60..0 dBFS -> 0..47 px. The starter keeps
      * the bars at 0. */
-    uint32_t ratio = (N/2) / DSP_SPECTRUM_COLS;
-    /*for (int i = 0; i < DSP_SPECTRUM_COLS; i++)
-    {
-        s_spectrum[i] = 0;
-    }*/
+    
+    float32_t hz_per_bin = 16000.0f / N;
+    float32_t upper_bin = high_freq / hz_per_bin;
+    float32_t lower_bin = low_freq / hz_per_bin;
+
+    float32_t total_columns = (upper_bin - lower_bin) / DSP_SPECTRUM_COLS;
     float32_t offset = (20.0f * log10f( N/4.0f ));
+
+    float32_t position = lower_bin;
     for (uint32_t c = 0u; c < DSP_SPECTRUM_COLS; c++)
     {
-        uint32_t start = c * ratio;
-        float32_t largest = 0;
-        for (int i = 0; i < ratio; i++)
+        float32_t step = position + total_columns;
+        
+        uint32_t start = (uint32_t) position;
+        uint32_t end = (uint32_t) step;
+        if (end > (N / 2) - 1)
         {
-            if (s_mag[start + i] > largest)
+            end = (N / 2) - 1; 
+        }
+        float32_t largest = 0;
+        for (int i = start; i <= end; i++)
+        {
+            if (s_mag[i] > largest)
             {
-                largest = s_mag[start + i];
+                largest = s_mag[i];
             }
         }
+        position = step;
+
         float32_t db = (20.0f * log10f(largest + 1e-9f));
         db -= offset;
         if (db < -60.0f)
@@ -97,6 +113,12 @@ void dsp_process(const int16_t *pcm)
         float32_t pixel = (db + 60.0f) * 47.0f / 60.0f;
         s_spectrum[c] = (uint8_t) pixel;
     }
+}
+
+void set_frequency(float32_t low, float32_t high)
+{
+    high_freq = high;
+    low_freq = low;
 }
 
 float          dsp_level_dbfs(void) { return s_level_dbfs; }
