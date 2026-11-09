@@ -46,7 +46,7 @@ void fillup_oled(const uint8_t* spectrum, uint8_t *fb1024);
 /* Shared spike level (0..255, about 128 with no sound). Single-writer (DSP),
  * one-reader (UI). A stale read is harmless (spec R11-style unlocked
  * snapshot). */
-static volatile uint8_t g_spike_level = 128u;
+// static volatile uint8_t g_spike_level = 128u;
 static volatile uint8_t g_freeze;
 static volatile uint8_t g_b1_flag, g_b2_flag;
 
@@ -84,7 +84,7 @@ static void DSPTask(void *arg)
         const uint8_t *pdm = audio_half(which);
 
         /* MILESTONE 1 — the spike: crude PDM-density level (no decimation). */
-        g_spike_level = audio_spike_level(pdm);
+        // g_spike_level = audio_spike_level(pdm);
 
         /* FULL PATH (student, when audio_decimate() works — PDM2PCM is
          * pre-vendored and connected):
@@ -107,7 +107,7 @@ static void DSPTask(void *arg)
 static void cmd_stat(int argc, char *argv[])
 {
     (void)argc; (void)argv;
-    int amp = (g_spike_level > 128) ? (g_spike_level - 128) : (128 - g_spike_level);
+    // int amp = (g_spike_level > 128) ? (g_spike_level - 128) : (128 - g_spike_level);
     printf("Fs=%u N=%u bin=%uHz T=%ums | frames=%lu overruns=%lu level=%d peak=%d cpu=%u%%\n",
            FS_HZ, (unsigned)AUDIO_PCM_N, (unsigned)BIN_HZ, (unsigned)T_MS,
            (unsigned long)audio_frames(), (unsigned long)audio_overruns(),
@@ -203,15 +203,15 @@ static void UITask(void *arg)
         }
         if (g_b2_flag) { g_b2_flag = 0u; g_freeze ^= 1u; }
 
-        uint8_t lv = g_spike_level;
-        int amp = (lv > 128) ? (lv - 128) : (128 - lv);
+        // uint8_t lv = g_spike_level;
+        // int amp = (lv > 128) ? (lv - 128) : (128 - lv);
 
         if (!g_freeze) {
             if (ui_state == 0)
             {
                 oled_printf(0, "PS-16 PhonoScope");
                 oled_printf(2, "frames %lu", (unsigned long)audio_frames());
-                oled_printf(4, "level %-3d ovr %lu", amp, (unsigned long)audio_overruns());
+                oled_printf(4, "level %d ovr %lu", (int)dsp_level_dbfs(), (unsigned long)audio_overruns());
                 oled_printf(6, "CPU %u%%", perf_cpu_percent());
             }
             else
