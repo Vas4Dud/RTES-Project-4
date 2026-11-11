@@ -61,7 +61,7 @@ float32_t sum_square_mag (float32_t low, float32_t high) {
     float32_t hz_per_bin = 16000.0f / N_value;
     float32_t fstart = (low / hz_per_bin + 0.999f);
     uint32_t start = (int)fstart;
-    float32_t fend = (high / hz_per_bin + 0.999f);
+    float32_t fend = (high / hz_per_bin);
     uint32_t end = (int)fend;
 
     if (start > end) {
