@@ -39,5 +39,6 @@ uint8_t dsp_clip(void);
 const uint8_t *dsp_spectrum(void);
 void set_frequency(float32_t low, float32_t high);
 void dsp_setN(uint32_t value);
+void set_window(uint8_t type);
 
 #endif /* DSP_H */

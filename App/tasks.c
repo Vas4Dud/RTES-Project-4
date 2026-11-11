@@ -20,6 +20,7 @@
  *  callbacks notify the DSP task (R3/R13).
  ******************************************************************************
  */
+#include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include "arm_math.h"          /* CMSIS-DSP — wired in CMakeLists (R16)         */
@@ -44,7 +45,9 @@
 #define BIN_HZ  (FS_HZ / AUDIO_PCM_N)               /* 62.5 Hz at N=256          */
 #define T_MS    (AUDIO_PCM_N * 1000u / FS_HZ)       /* frame period = deadline   */
 void fillup_oled(const uint8_t* spectrum, uint8_t *fb1024);
+void dwt_init();
 static uint32_t get_N();
+volatile uint8_t ui_state = 0; 
 
 /* Shared spike level (0..255, about 128 with no sound). Single-writer (DSP),
  * one-reader (UI). A stale read is harmless (spec R11-style unlocked
@@ -57,7 +60,7 @@ static osThreadId_t g_dsp_id, g_ui_id, g_con_id;
 
 static uint32_t N_value = 256;
 static uint32_t N_request = 0;
-
+volatile uint8_t win_request = 0;
 /* ============================ POST (pre-scheduler) ======================== */
 void app_post(void)
 {
@@ -76,6 +79,7 @@ void app_post(void)
     filter_init();
     dsp_init();                 /* FFT instance + Hann window (for the full path) */
     perf_mon_init();
+    dwt_init();
     printf("POST done. Audio starts after the idle-baseline second.\n\n");
 }
 
@@ -92,6 +96,11 @@ static void DSPTask(void *arg)
             N_request = 0;
             audio_setN(N_value);
             dsp_setN(N_value);
+        }
+        if (win_request != 0)
+        {
+            set_window(win_request);
+            win_request = 0;
         }                                
         uint8_t which = (fl & AUDIO_FLAG_HALF1) ? 1u : 0u;
         const uint8_t *pdm = audio_half(which);
@@ -133,8 +142,8 @@ static void cmd_stat(int argc, char *argv[])
     //GRAD SECTION
      float32_t deadline = (float32_t)N_value * 1000.0f / (float32_t) FS_HZ;
      printf("\n\nDeadline: %d.%dms\n", (int)deadline / 10, (int)deadline % 10);
-     /*printf("Stack dsp %lu, ui %lu, console %lu\n", (unsigned long)(osThreadGetStackSize(g_dsp_id)),
-                (unsigned long)(osThreadGetStackSize(g_ui_id)), (unsigned long)(osThreadGetStackSize(g_con_id)));*/
+     printf("Stack dsp %lu, ui %lu, console %lu\n", (unsigned long)(osThreadGetStackSpace(g_dsp_id)),
+                (unsigned long)(osThreadGetStackSpace(g_ui_id)), (unsigned long)(osThreadGetStackSpace(g_con_id)));
 
 }
 
@@ -153,9 +162,19 @@ static void cmd_help(int argc, char *argv[])
 
 /* ---- STUDENT TODO handlers (the analyzer commands, stubbed) -------------- */
 static void cmd_gain(int argc, char *argv[])
-{ (void)argc; (void)argv; printf("TODO(student): GAIN <dB> — mic gain, spec §9 D6\n"); }
+{ 
+    (void)argc; (void)argv; printf("TODO(student): GAIN <dB> — mic gain, spec §9 D6\n"); 
+
+}
+
 static void cmd_band(int argc, char *argv[])
-{ (void)argc; (void)argv; printf("TODO(student): BAND <lo> <hi> — display band/zoom, spec R10\n"); }
+{ 
+    (void)argc; 
+    (void)argv; 
+    float32_t argument1 = atof(argv[1]);
+    float32_t argument2 = atof(argv[2]);
+    set_frequency(argument1, argument2);
+}
 
 static void cmd_fft(int argc, char *argv[])
 { 
@@ -173,9 +192,44 @@ static void cmd_fft(int argc, char *argv[])
     N_request = argument;
 }
 static void cmd_win(int argc, char *argv[])
-{ (void)argc; (void)argv; printf("TODO(student): WIN <hann|hamming|rect> — spec R5, demo D3\n"); }
+{ 
+    (void)argc; (void)argv; 
+    printf("TODO(student): WIN <hann|hamming|rect> — spec R5, demo D3\n"); 
+    if (strcmp(argv[1], "hann") == 0)
+    {
+        win_request = 1;
+    }
+    else if (strcmp(argv[1], "hamming") == 0) 
+    {
+        win_request = 2;
+    }
+    else if (strcmp(argv[1], "rect") == 0) 
+    {
+        win_request = 3;
+    }
+}
 static void cmd_run(int argc, char *argv[])
-{ (void)argc; (void)argv; printf("TODO(student): RUN <vu|spec|heart|lung> — mode switch, spec §3\n"); }
+{ 
+    (void)argc; (void)argv; 
+
+    /*if (strcmp(argv[1], "vu") == 0)
+    {
+        ui_state = 0;
+    }
+    else if (strcmp(argv[1], "spec") == 0) 
+    {
+        ui_state = 1;
+    }
+    else if (strcmp(argv[1], "heart") == 0) 
+    {
+        win_request = 2;
+    }
+    else if (strcmp(argv[1], "lung") == 0) 
+    {
+        win_request =  3;
+    }*/
+    printf("TODO(student): RUN <vu|spec|heart|lung> — mode switch, spec §3\n"); 
+}
 
 static const cmd_entry_t g_cmds[] = {
     { "HELP",   cmd_help,   "HELP — this list" },
@@ -225,7 +279,6 @@ static void UITask(void *arg)
     for (;;) {
         tick += 40u;
         osDelayUntil(tick);                 /* ~25 fps, decoupled from frames    */
-        static uint8_t ui_state = 0; 
         if (g_b1_flag) 
         { 
             g_b1_flag = 0;
@@ -369,10 +422,7 @@ void fillup_oled(const uint8_t* spectrum, uint8_t *fb1024)
 
 void dwt_init()
 {
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
     DWT->CYCCNT = 0;
-}
-
-static uint32_t get_N()
-{
-    return N_value;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
 }

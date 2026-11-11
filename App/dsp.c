@@ -37,6 +37,8 @@ static volatile uint8_t s_clip;
 static volatile float32_t high_freq = 8000;
 static volatile float32_t low_freq = 0;
 uint32_t N_value = 256;
+void set_window(uint8_t type);
+
 void dsp_init(void)
 {
     (void)arm_rfft_fast_init_f32(&s_rfft, N_value);
@@ -134,4 +136,26 @@ void dsp_setN(uint32_t value)
     (void)arm_rfft_fast_init_f32(&s_rfft, N_value);
     for (uint32_t i = 0u; i < N_value; i++)
         s_win[i] = 0.5f * (1.0f - cosf(2.0f * PI * (float)i / (float)(N_value - 1u)));
+}
+
+void set_window(uint8_t type)
+{
+    //hann
+    if (type == 1)
+    {
+        for (uint32_t i = 0u; i < N_value; i++)
+            s_win[i] = 0.5f * (1.0f - cosf(2.0f * PI * (float)i / (float)(N_value - 1u)));
+    }
+    //hamming
+    if (type == 2)
+    {
+        for (uint32_t i = 0u; i < N_value; i++)
+            s_win[i] = 0.54f - 0.46f * (cosf(2.0f * PI * (float)i / (float)(N_value - 1u)));
+    }
+    //rect
+    if (type == 3)
+    {
+        for (uint32_t i = 0u; i < N_value; i++)
+            s_win[i] = 1.0f;
+    }
 }

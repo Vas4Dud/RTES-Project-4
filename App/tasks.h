@@ -24,5 +24,5 @@ void app_post(void);
 void app_start(void);
 void fillup_oled(const uint8_t* spectrum, uint8_t *fb1024);
 static uint32_t get_N();
-
+void dwt_init();
 #endif /* TASKS_H */
