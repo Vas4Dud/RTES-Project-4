@@ -41,7 +41,7 @@
 /* Starter default: N=256 PCM samples in a frame (62.5 Hz bins) keeps the PDM
  * buffer modest for the spike. Increase it to 512 or 1024 when capture and
  * the FFT are proven. */
-#define AUDIO_PCM_N           256u
+#define AUDIO_PCM_N           256
 #define AUDIO_DECIM           80u                          /* PDM2PCM ÷80         */
 #define AUDIO_PDM_HALF_BYTES  (AUDIO_PCM_N * AUDIO_DECIM / 8u)   /* per half        */
 
@@ -81,5 +81,6 @@ uint32_t audio_overruns(void);
  *  @retval 0 on success, -1 while the function is a stub. */
 int32_t audio_decimate(const uint8_t *pdm_half, int16_t *pcm_out);
 void filter_init(void);
+void audio_setN(uint32_t value);
 
 #endif /* AUDIO_H */

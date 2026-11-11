@@ -21,10 +21,12 @@
  ******************************************************************************
  */
 #include <stdint.h>
+#include <stdlib.h>
 #include "arm_math.h"          /* CMSIS-DSP — wired in CMakeLists (R16)         */
 #include <math.h>
 #include <stdio.h>
 #include <string.h> 
+#include <sys/_types.h>
 #include "main.h"
 #include "tasks.h"
 #include "audio.h"
@@ -42,6 +44,7 @@
 #define BIN_HZ  (FS_HZ / AUDIO_PCM_N)               /* 62.5 Hz at N=256          */
 #define T_MS    (AUDIO_PCM_N * 1000u / FS_HZ)       /* frame period = deadline   */
 void fillup_oled(const uint8_t* spectrum, uint8_t *fb1024);
+static uint32_t get_N();
 
 /* Shared spike level (0..255, about 128 with no sound). Single-writer (DSP),
  * one-reader (UI). A stale read is harmless (spec R11-style unlocked
@@ -51,6 +54,9 @@ static volatile uint8_t g_freeze;
 static volatile uint8_t g_b1_flag, g_b2_flag;
 
 static osThreadId_t g_dsp_id, g_ui_id, g_con_id;
+
+static uint32_t N_value = 256;
+static uint32_t N_request = 0;
 
 /* ============================ POST (pre-scheduler) ======================== */
 void app_post(void)
@@ -80,6 +86,13 @@ static void DSPTask(void *arg)
     for (;;) {
         uint32_t fl = osThreadFlagsWait(AUDIO_FLAG_HALF0 | AUDIO_FLAG_HALF1,
                                         osFlagsWaitAny, osWaitForever);
+        if (N_request != 0)
+        {
+            N_value = N_request;
+            N_request = 0;
+            audio_setN(N_value);
+            dsp_setN(N_value);
+        }                                
         uint8_t which = (fl & AUDIO_FLAG_HALF1) ? 1u : 0u;
         const uint8_t *pdm = audio_half(which);
 
@@ -91,7 +104,7 @@ static void DSPTask(void *arg)
          *   static int16_t pcm[AUDIO_PCM_N];
          *   if (audio_decimate(pdm, pcm) == 0) dsp_process(pcm);
          * dsp_process obeys WCET < T_MS in all frames (spec R14). */
-        static int16_t pcm[AUDIO_PCM_N];
+        static int16_t pcm[2048];
         if (audio_decimate(pdm, pcm) == 0) dsp_process(pcm);
 
         audio_half_done(which);
@@ -109,12 +122,20 @@ static void cmd_stat(int argc, char *argv[])
     (void)argc; (void)argv;
     // int amp = (g_spike_level > 128) ? (g_spike_level - 128) : (128 - g_spike_level);
     printf("Fs=%u N=%u bin=%uHz T=%ums | frames=%lu overruns=%lu level=%d peak=%d cpu=%u%%\n",
-           FS_HZ, (unsigned)AUDIO_PCM_N, (unsigned)BIN_HZ, (unsigned)T_MS,
+           FS_HZ, (unsigned)N_value, (unsigned)(FS_HZ / N_value), (unsigned)(N_value * 1000 / FS_HZ),
            (unsigned long)audio_frames(), (unsigned long)audio_overruns(),
            (int)dsp_level_dbfs(), (int)dsp_peak_dbfs(), perf_cpu_percent());
+
     /* STUDENT: build this into the full stat surface — WCET and jitter,
      * dropped=0, stack high-waters (R17: read at the bench off this
      * surface). */
+    
+    //GRAD SECTION
+     float32_t deadline = (float32_t)N_value * 1000.0f / (float32_t) FS_HZ;
+     printf("\n\nDeadline: %d.%dms\n", (int)deadline / 10, (int)deadline % 10);
+     /*printf("Stack dsp %lu, ui %lu, console %lu\n", (unsigned long)(osThreadGetStackSize(g_dsp_id)),
+                (unsigned long)(osThreadGetStackSize(g_ui_id)), (unsigned long)(osThreadGetStackSize(g_con_id)));*/
+
 }
 
 static void cmd_freeze(int argc, char *argv[])
@@ -135,8 +156,22 @@ static void cmd_gain(int argc, char *argv[])
 { (void)argc; (void)argv; printf("TODO(student): GAIN <dB> — mic gain, spec §9 D6\n"); }
 static void cmd_band(int argc, char *argv[])
 { (void)argc; (void)argv; printf("TODO(student): BAND <lo> <hi> — display band/zoom, spec R10\n"); }
+
 static void cmd_fft(int argc, char *argv[])
-{ (void)argc; (void)argv; printf("TODO(student): FFT <256|512|1024> — re-init without dropping capture, spec R8\n"); }
+{ 
+    (void)argc; (void)argv; 
+    uint32_t argument = atoi(argv[1]);
+    if(argument > 2048)
+    {
+        argument = 2048;
+    }
+    else if (argument < 0 )
+    {
+        argument = 256;
+    }
+    
+    N_request = argument;
+}
 static void cmd_win(int argc, char *argv[])
 { (void)argc; (void)argv; printf("TODO(student): WIN <hann|hamming|rect> — spec R5, demo D3\n"); }
 static void cmd_run(int argc, char *argv[])
@@ -330,4 +365,14 @@ void fillup_oled(const uint8_t* spectrum, uint8_t *fb1024)
             fb1024[(y / 8) * 128 + j] = pixels;
         }  
     }
+}
+
+void dwt_init()
+{
+    DWT->CYCCNT = 0;
+}
+
+static uint32_t get_N()
+{
+    return N_value;
 }

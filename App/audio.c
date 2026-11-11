@@ -13,6 +13,7 @@
 #include <string.h>
 #include "pdm2pcm.h"
 #include "pdm2pcm_glo.h"
+
 /* CubeMX names the SAI1 sub-block-A handle 'hsai_BlockA1' and its DMA handle
  * 'hdma_sai1_a' by default. If your generated Core/Src/main.c uses different
  * names, change them here. */
@@ -22,7 +23,8 @@ extern DMA_HandleTypeDef hdma_sai1_a;
 /* Raw PDM double-buffer. It is static and out of the RTOS heap (spec R17).
  * The DMA fills [0..HALF) then [HALF..2*HALF) circularly. The callbacks hand
  * off the half that the DMA filled. */
-static uint8_t   s_pdm[2u * AUDIO_PDM_HALF_BYTES];
+static uint32_t N_value = AUDIO_PCM_N;
+static uint8_t   s_pdm[2048 * AUDIO_DECIM / 8];
 static osThreadId_t s_consumer;
 static volatile uint32_t s_frames;
 static volatile uint32_t s_overruns;
@@ -31,10 +33,13 @@ PDM2PCM_Handler_t filter;
 
 void audio_set_consumer(osThreadId_t consumer) { s_consumer = consumer; }
 void filter_init(void);
+void audio_setN(uint32_t value);
+
+
 
 const uint8_t *audio_half(uint8_t which)
 {
-    return &s_pdm[(which & 1u) * AUDIO_PDM_HALF_BYTES];
+    return &s_pdm[(which & 1u) * (N_value * AUDIO_DECIM / 8)];
 }
 
 /* ---- PROVIDED (Patch 1): the SAI and DMA configuration ------------------
@@ -112,7 +117,7 @@ int32_t audio_start(void)
     /* Receive the full 2*HALF buffer circularly. HAL raises HalfCplt at the
      * midpoint and Cplt at the end, then it wraps. The DMA is byte-wide, so
      * the transfer count is the byte count of the buffer. */
-    return (HAL_SAI_Receive_DMA(&hsai_BlockA1, s_pdm, sizeof s_pdm) == HAL_OK)
+    return (HAL_SAI_Receive_DMA(&hsai_BlockA1, s_pdm, (2 * N_value * AUDIO_DECIM / 8)) == HAL_OK)
                ? 0 : -1;
 }
 
@@ -157,7 +162,7 @@ uint8_t audio_spike_level(const uint8_t *pdm_half)
      * With no sound the result is about 128, and a tone moves it above 128.
      * This is NOT audio. It is a check that the mic is alive and hears the
      * tone, for the capture spike. (Patch 1) */
-    const uint32_t nwin = AUDIO_PDM_HALF_BYTES / SPIKE_WIN_BYTES;
+    const uint32_t nwin = (N_value * AUDIO_DECIM / 8)  / SPIKE_WIN_BYTES;
     const int32_t  mid  = (int32_t)(SPIKE_WIN_BYTES * 4u);   /* 50% of the bits */
     uint32_t acc = 0u;
     for (uint32_t w = 0u; w < nwin; w++) {
@@ -177,7 +182,7 @@ uint32_t audio_overruns(void) { return s_overruns; }
 /* ---- STUDENT TODO: PDM -> PCM decimation (PDM2PCM is pre-vendored) --------*/
 int32_t audio_decimate(const uint8_t *pdm_half, int16_t *pcm_out)
 {
-    uint16_t limit = AUDIO_PCM_N / 16;
+    uint16_t limit = N_value / 16;
     uint32_t check = 0;
     for (uint16_t i = 0; i < limit; i++)
     {
@@ -225,3 +230,9 @@ void filter_init(void)
     PDM_Filter_setConfig(&filter, &config);
 }
 
+void audio_setN(uint32_t value)
+{
+    (void)HAL_SAI_DMAStop(&hsai_BlockA1);
+    N_value = value;
+    int32_t check = audio_start();
+}
