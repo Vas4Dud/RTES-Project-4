@@ -18,10 +18,12 @@
 /* N is the number of samples in a frame. The starter uses 256, and you can
  * raise it. */
 #define N  2048
-#define MURMUR RATIO = 0.4
-#define WHEEZE_RATIO = 0.5
-#define RHONCHI_RATIO = 0.5
-#define CRACKLE_MIN 0.25
+
+#define LEVEL_GATE_DB   -40.0f // guards against random noise setting off the flags
+#define MURMUR_RATIO    0.40f
+#define WHEEZE_RATIO    0.50f
+#define RHONCHI_RATIO   0.50f
+#define CRACKLE_MIN     0.25f
 
 void set_frequency(float32_t low, float32_t high);
 void dsp_setN(uint32_t value);
@@ -109,7 +111,16 @@ void dsp_process(const int16_t *pcm)
     float32_t E_low = sum_square_mag(100.0f, 350.0f);
     float32_t E_high = sum_square_mag(400.0f, 1000.0f);
 
-    // TODO: Write up the flag checking logic
+    uint8_t gate = (s_level_dbfs > LEVEL_GATE_DB);
+
+    uint8_t wheeze  = gate && (E_high > WHEEZE_RATIO * E_lung);
+    uint8_t rhonchi = gate && (E_low  > RHONCHI_RATIO * E_lung);
+    uint8_t crackle = gate && !wheeze && !rhonchi && (E_low  > CRACKLE_MIN * E_lung)&& (E_high > CRACKLE_MIN * E_lung);
+
+    s_murmur  = gate && (E_murmur > MURMUR_RATIO * E_total_h);
+    s_wheeze  = wheeze;
+    s_rhonchi = rhonchi;
+    s_crackle = crackle;
 
     /* STUDENT TODO (spec R9/R10): fold s_mag[0..N/2) into s_spectrum[128] as
      * log-dB bar heights (0..DSP_BAR_MAX_PX). The fold is peak-preserving,
@@ -170,6 +181,10 @@ float          dsp_level_dbfs(void) { return s_level_dbfs; }
 float          dsp_peak_dbfs(void)  { return s_peak_dbfs; }
 uint8_t        dsp_clip(void)       { return s_clip; }
 const uint8_t *dsp_spectrum(void)   { return s_spectrum; }
+uint8_t        dsp_murmur(void)     { return s_murmur; }
+uint8_t        dsp_wheeze(void)     { return s_wheeze; }
+uint8_t        dsp_rhonchi(void)    { return s_rhonchi; }
+uint8_t        dsp_crackle(void)    { return s_crackle; }
 
 void dsp_setN(uint32_t value)
 {

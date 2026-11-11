@@ -317,10 +317,26 @@ static void UITask(void *arg)
                         break;
                 }
 
-                uint8_t* spectrum = dsp_spectrum();
+                const uint8_t* spectrum = dsp_spectrum();
                 static uint8_t vu_bar[1024];
                 fillup_oled(spectrum, vu_bar);
                 oled_blit(vu_bar);
+
+                // Row 0 displays the alert for the current detected condition
+                if (ui_state == 2u)
+                {
+                    if (dsp_murmur())
+                        oled_printf(0, "MURMUR >200Hz");
+                }
+                else if (ui_state == 3u)
+                {
+                    if (dsp_wheeze())
+                        oled_printf(0, "WHEEZE >=400Hz");
+                    else if (dsp_rhonchi())
+                        oled_printf(0, "RHONCHI <=350Hz");
+                    else if (dsp_crackle())
+                        oled_printf(0, "CRACKLES");
+                }
             }
             /* TODO: once dsp_process runs, oled_blit() the spectrum + VU bar. */
 

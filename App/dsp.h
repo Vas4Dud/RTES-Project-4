@@ -37,6 +37,11 @@ float   dsp_peak_dbfs(void);
 uint8_t dsp_clip(void);
 /** Column bar heights, 0..DSP_BAR_MAX_PX, DSP_SPECTRUM_COLS entries. */
 const uint8_t *dsp_spectrum(void);
+// clinical flags
+uint8_t dsp_murmur(void);
+uint8_t dsp_wheeze(void);
+uint8_t dsp_rhonchi(void);
+uint8_t dsp_crackle(void);
 void set_frequency(float32_t low, float32_t high);
 void dsp_setN(uint32_t value);
 void set_window(uint8_t type);
