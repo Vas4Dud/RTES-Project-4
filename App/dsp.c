@@ -18,6 +18,10 @@
 /* N is the number of samples in a frame. The starter uses 256, and you can
  * raise it. */
 #define N  2048
+#define MURMUR RATIO = 0.4
+#define WHEEZE_RATIO = 0.5
+#define RHONCHI_RATIO = 0.5
+#define CRACKLE_MIN 0.25
 
 void set_frequency(float32_t low, float32_t high);
 void dsp_setN(uint32_t value);
@@ -34,6 +38,11 @@ static uint8_t   s_spectrum[DSP_SPECTRUM_COLS];
 static volatile float   s_level_dbfs = -120.0f, s_peak_dbfs = -120.0f;
 static volatile uint8_t s_clip;
 
+static volatile uint8_t s_murmur;
+static volatile uint8_t s_wheeze;
+static volatile uint8_t s_rhonchi;
+static volatile uint8_t s_crackle;
+
 static volatile float32_t high_freq = 8000;
 static volatile float32_t low_freq = 0;
 uint32_t N_value = 256;
@@ -42,6 +51,30 @@ void dsp_init(void)
     (void)arm_rfft_fast_init_f32(&s_rfft, N_value);
     for (uint32_t i = 0u; i < N_value; i++)
         s_win[i] = 0.5f * (1.0f - cosf(2.0f * PI * (float)i / (float)(N_value - 1u)));
+}
+
+float32_t sum_square_mag (float32_t low, float32_t high) {
+    float32_t hz_per_bin = 16000.0f / N_value;
+    float32_t fstart = (low / hz_per_bin + 0.999f);
+    uint32_t start = (int)fstart;
+    float32_t fend = (high / hz_per_bin + 0.999f);
+    uint32_t end = (int)fend;
+
+    if (start > end) {
+        return 0;
+    }
+
+    if (end > (N_value/2) -1 ){
+        end = (N_value/2) -1 ;
+    }
+
+    float32_t total = 0.0f;
+
+    for (uint32_t i=start; i<=end; i++){
+        total += (s_mag[i] * s_mag[i]);
+    }
+
+    return total;
 }
 
 void dsp_process(const int16_t *pcm)
@@ -67,6 +100,14 @@ void dsp_process(const int16_t *pcm)
     arm_rfft_fast_f32(&s_rfft, s_windowed, s_fft, 0);
     s_fft[1] = 0.0f;                     /* rFFT packs Nyquist into bin[1] — drop */
     arm_cmplx_mag_f32(s_fft, s_mag, N_value / 2u);
+
+    float32_t E_murmur = sum_square_mag(200.0f, 800.0f);
+    float32_t E_total_h = sum_square_mag(20.0f, 800.0f);
+    float32_t E_lung = sum_square_mag(100.0f, 1000.0f);
+    float32_t E_low = sum_square_mag(100.0f, 350.0f);
+    float32_t E_high = sum_square_mag(400.0f, 1000.0f);
+
+    // TODO: Write up the flag checking logic
 
     /* STUDENT TODO (spec R9/R10): fold s_mag[0..N/2) into s_spectrum[128] as
      * log-dB bar heights (0..DSP_BAR_MAX_PX). The fold is peak-preserving,
